@@ -7,13 +7,17 @@
       "connectable": true
     }
   ],
-  "codeowners": ["@tiagoagueda"],
+  "codeowners": [
+    "@tiagoagueda"
+  ],
   "config_flow": true,
-  "dependencies": ["bluetooth_adapters"],
+  "dependencies": [
+    "bluetooth_adapters"
+  ],
   "documentation": "https://github.com/tiagoagueda/hass-pcpw3008",
   "integration_type": "device",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/tiagoagueda/hass-pcpw3008/issues",
   "requirements": [],
-  "version": "0.1.0"
+  "version": "0.2.0"
 }
