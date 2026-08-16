@@ -182,11 +182,17 @@ class ScaleCoordinator(DataUpdateCoordinator[dict[str, p.FinalFrame]]):
 
             self._pushed = pushed
             self._final_event.clear()
+            self._disconnected = asyncio.Event()
             client = None
             try:
                 client = await establish_connection(
-                    BleakClientWithServiceCache, device, self.address, max_attempts=4
+                    BleakClientWithServiceCache,
+                    device,
+                    self.address,
+                    max_attempts=4,
+                    disconnected_callback=self._on_disconnected,
                 )
+                _LOGGER.debug("Connected; pushing %s's profile (P%d)", pushed.name, pushed.slot)
                 await client.start_notify(CHAR_UUID, self._on_notify)
 
                 # Fire-and-forget: the scale may or may not ACK these.
@@ -202,12 +208,23 @@ class ScaleCoordinator(DataUpdateCoordinator[dict[str, p.FinalFrame]]):
                 )
                 await client.write_gatt_char(CHAR_UUID, p.build_unit(), response=True)
 
-                try:
-                    await asyncio.wait_for(
-                        self._final_event.wait(), timeout=SESSION_TIMEOUT
+                # Whichever comes first: a measurement, or the scale hanging up.
+                waiters = [
+                    asyncio.create_task(self._final_event.wait()),
+                    asyncio.create_task(self._disconnected.wait()),
+                ]
+                done, pending = await asyncio.wait(
+                    waiters, timeout=SESSION_TIMEOUT,
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                for task in pending:
+                    task.cancel()
+                if not self._final_event.is_set():
+                    _LOGGER.debug(
+                        "No settled measurement (%s). Stay on the scale until it "
+                        "settles — the link needs a few seconds to come up first.",
+                        "scale disconnected" if self._disconnected.is_set() else "timed out",
                     )
-                except TimeoutError:
-                    _LOGGER.debug("No settled measurement before timeout")
                     return
 
                 try:
@@ -226,6 +243,12 @@ class ScaleCoordinator(DataUpdateCoordinator[dict[str, p.FinalFrame]]):
                         await client.disconnect()
                     except Exception:  # noqa: BLE001
                         pass
+
+    def _on_disconnected(self, _client) -> None:
+        """The scale hung up — usually because the user stepped off."""
+        event = getattr(self, "_disconnected", None)
+        if event is not None:
+            self.hass.loop.call_soon_threadsafe(event.set)
 
     @callback
     def _on_notify(self, _characteristic, data: bytearray) -> None:
@@ -258,6 +281,7 @@ class ScaleCoordinator(DataUpdateCoordinator[dict[str, p.FinalFrame]]):
                 return
             if self._is_duplicate(final.weight_kg):
                 return
+            _LOGGER.debug("Final frame: %.2f kg, contact=%s", final.weight_kg, final.has_contact)
             self._last_published = (final.weight_kg, time.monotonic())
             self._publish(final)
             self._final_event.set()
@@ -286,6 +310,10 @@ class ScaleCoordinator(DataUpdateCoordinator[dict[str, p.FinalFrame]]):
             profile_pushed_for=pushed,
             margin_kg=margin(people, final.weight_kg, person),
             exact=exact,
+        )
+        _LOGGER.debug(
+            "Attributed %.2f kg to %s (composition valid: %s)",
+            final.weight_kg, person.name, exact,
         )
         self._last_person_id = person.subentry_id
         self._remember(person, final.weight_kg)

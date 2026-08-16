@@ -45,8 +45,13 @@ MAX_SLOT = 7
 DISCOVERY_TIMEOUT = 60.0
 
 # How long to keep the link open waiting for the user to settle. The observed
-# gap between connecting and the final frame was ~15s; this is generous.
-SESSION_TIMEOUT = 90.0
+# gap between connecting and the final frame is ~13-15s.
+#
+# Keep this tight. A session holds a lock that makes every advertisement
+# arriving meanwhile a no-op, so an over-long timeout after a missed weigh-in
+# swallows everybody else's attempts — three people stepping on in turn would
+# all be ignored while one dead session ran out the clock.
+SESSION_TIMEOUT = 30.0
 
 # The scale re-sends the final frame several times. Ignore repeats of an
 # identical measurement seen within this window.
