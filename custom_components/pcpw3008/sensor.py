@@ -33,6 +33,7 @@ class ScaleSensorDescription(SensorEntityDescription):
 SENSORS: tuple[ScaleSensorDescription, ...] = (
     ScaleSensorDescription(
         key="weight",
+        icon="mdi:scale-bathroom",
         translation_key="weight",
         device_class=SensorDeviceClass.WEIGHT,
         native_unit_of_measurement=UnitOfMass.KILOGRAMS,
@@ -42,6 +43,7 @@ SENSORS: tuple[ScaleSensorDescription, ...] = (
     ),
     ScaleSensorDescription(
         key="fat",
+        icon="mdi:percent",
         translation_key="fat",
         native_unit_of_measurement="%",
         state_class=SensorStateClass.MEASUREMENT,
@@ -50,6 +52,7 @@ SENSORS: tuple[ScaleSensorDescription, ...] = (
     ),
     ScaleSensorDescription(
         key="water",
+        icon="mdi:water-percent",
         translation_key="water",
         native_unit_of_measurement="%",
         state_class=SensorStateClass.MEASUREMENT,
@@ -58,6 +61,7 @@ SENSORS: tuple[ScaleSensorDescription, ...] = (
     ),
     ScaleSensorDescription(
         key="muscle",
+        icon="mdi:arm-flex",
         translation_key="muscle",
         native_unit_of_measurement="%",
         state_class=SensorStateClass.MEASUREMENT,
@@ -66,6 +70,7 @@ SENSORS: tuple[ScaleSensorDescription, ...] = (
     ),
     ScaleSensorDescription(
         key="bone",
+        icon="mdi:bone",
         translation_key="bone",
         device_class=SensorDeviceClass.WEIGHT,
         native_unit_of_measurement=UnitOfMass.KILOGRAMS,
@@ -75,6 +80,7 @@ SENSORS: tuple[ScaleSensorDescription, ...] = (
     ),
     ScaleSensorDescription(
         key="bmr",
+        icon="mdi:fire",
         translation_key="bmr",
         native_unit_of_measurement="kcal",
         state_class=SensorStateClass.MEASUREMENT,
@@ -82,6 +88,7 @@ SENSORS: tuple[ScaleSensorDescription, ...] = (
     ),
     ScaleSensorDescription(
         key="bmi",
+        icon="mdi:human-male-height",
         translation_key="bmi",
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=1,
@@ -89,6 +96,7 @@ SENSORS: tuple[ScaleSensorDescription, ...] = (
     ),
     ScaleSensorDescription(
         key="visceral_fat",
+        icon="mdi:stomach",
         translation_key="visceral_fat",
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=1,
@@ -96,6 +104,7 @@ SENSORS: tuple[ScaleSensorDescription, ...] = (
     ),
     ScaleSensorDescription(
         key="body_age",
+        icon="mdi:cake-variant",
         translation_key="body_age",
         native_unit_of_measurement="a",
         state_class=SensorStateClass.MEASUREMENT,
