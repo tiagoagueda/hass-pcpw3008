@@ -1,0 +1,33 @@
+"""Constants for the ProfiCare PC-PW 3008 BT integration."""
+
+from __future__ import annotations
+
+DOMAIN = "pcpw3008"
+
+# The scale advertises this exact local name. Matching on its advertised
+# service 0xFEE7 instead would be wrong: that is the generic WeChat BLE
+# service and plenty of unrelated hardware announces it.
+LOCAL_NAME = "PC-PW 3008 BT"
+
+SERVICE_UUID = "0000ffb0-0000-1000-8000-00805f9b34fb"
+CHAR_UUID = "0000ffb2-0000-1000-8000-00805f9b34fb"
+
+CONF_MALE = "male"
+CONF_AGE = "age"
+CONF_HEIGHT = "height_cm"
+# On-scale user profile slot (P0, P1, ...). The scale keeps its own per-slot
+# history, so matching it keeps Home Assistant and the scale display in step.
+CONF_SLOT = "slot"
+
+DEFAULT_AGE = 40
+DEFAULT_HEIGHT = 175
+DEFAULT_SLOT = 0
+MAX_SLOT = 7
+
+# How long to keep the link open waiting for the user to settle. The observed
+# gap between connecting and the final frame was ~15s; this is generous.
+SESSION_TIMEOUT = 90.0
+
+# The scale re-sends the final frame several times. Ignore repeats of an
+# identical measurement seen within this window.
+DEDUPE_WINDOW = 30.0

@@ -1,0 +1,73 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "title": "Select your scale",
+        "description": "Step on the scale first — it only advertises while awake.",
+        "data": {
+          "address": "Scale"
+        }
+      },
+      "profile": {
+        "title": "Body profile",
+        "description": "The scale computes body fat, water, muscle and the rest on-device from this profile, so these values decide whether those readings are meaningful. Weight is unaffected. Use the same profile slot you normally weigh under on the scale itself.",
+        "data": {
+          "male": "Male",
+          "age": "Age",
+          "height_cm": "Height (cm)",
+          "slot": "On-scale user profile (P0, P1, ...)"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "This scale is already set up",
+      "no_devices_found": "No scale found. Step on it to wake it up, then try again."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Body profile",
+        "description": "Changing this reconnects the scale so it recomputes with the new profile.",
+        "data": {
+          "male": "Male",
+          "age": "Age",
+          "height_cm": "Height (cm)",
+          "slot": "On-scale user profile (P0, P1, ...)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "weight": {
+        "name": "Weight"
+      },
+      "fat": {
+        "name": "Body fat"
+      },
+      "water": {
+        "name": "Water"
+      },
+      "muscle": {
+        "name": "Muscle"
+      },
+      "bone": {
+        "name": "Bone mass"
+      },
+      "bmr": {
+        "name": "Basal metabolic rate"
+      },
+      "bmi": {
+        "name": "BMI"
+      },
+      "visceral_fat": {
+        "name": "Visceral fat"
+      },
+      "body_age": {
+        "name": "Body age"
+      }
+    }
+  }
+}
