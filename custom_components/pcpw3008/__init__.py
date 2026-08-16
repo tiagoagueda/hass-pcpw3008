@@ -6,8 +6,9 @@ import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.const import CONF_ADDRESS, Platform
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import entity_registry as er
 
 from .const import (
     CONF_AGE,
@@ -32,6 +33,39 @@ SERVICE_REASSIGN = "reassign_measurement"
 ATTR_PERSON = "person"
 
 type ScaleConfigEntry = ConfigEntry[ScaleCoordinator]
+
+
+def _migrate_legacy_unique_ids(
+    hass: HomeAssistant, entry: ConfigEntry, subentry_id: str, address: str
+) -> None:
+    """Re-point pre-multi-user entities at the person they became.
+
+    Before multi-user, unique ids were "<address>_<key>"; now they are
+    "<address>_<subentry>_<key>". Without this the old entities are stranded as
+    permanently unavailable and the new ones get "_2" appended to their entity
+    ids — losing the history that was already recorded under the old name.
+    """
+    registry = er.async_get(hass)
+    taken = {
+        e.unique_id
+        for e in er.async_entries_for_config_entry(registry, entry.entry_id)
+    }
+    prefix = f"{address}_"
+    new_prefix = f"{address}_{subentry_id}_"
+
+    @callback
+    def _update(entry_: er.RegistryEntry) -> dict[str, str] | None:
+        uid = entry_.unique_id
+        if not uid.startswith(prefix) or uid.startswith(new_prefix):
+            return None
+        new_uid = f"{new_prefix}{uid[len(prefix):]}"
+        # A collision means the new entity already exists; leave both alone
+        # rather than crash the whole migration.
+        if new_uid in taken:
+            return None
+        return {"new_unique_id": new_uid}
+
+    er.async_migrate_entries(hass, entry.entry_id, _update)
 
 
 def _ensure_person_subentry(hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -62,6 +96,11 @@ def _ensure_person_subentry(hass: HomeAssistant, entry: ConfigEntry) -> None:
             unique_id=None,
         ),
     )
+
+    created = next(
+        s_ for s_ in entry.subentries.values() if s_.subentry_type == SUBENTRY_PERSON
+    )
+    _migrate_legacy_unique_ids(hass, entry, created.subentry_id, entry.data[CONF_ADDRESS])
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ScaleConfigEntry) -> bool:

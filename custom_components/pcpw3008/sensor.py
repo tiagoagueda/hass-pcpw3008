@@ -7,8 +7,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from homeassistant.components.sensor import (
+    RestoreSensor,
     SensorDeviceClass,
-    SensorEntity,
     SensorEntityDescription,
     SensorStateClass,
 )
@@ -136,8 +136,14 @@ async def async_setup_entry(
         )
 
 
-class ScaleSensor(CoordinatorEntity[ScaleCoordinator], SensorEntity):
-    """One field of one person's most recent measurement."""
+class ScaleSensor(CoordinatorEntity[ScaleCoordinator], RestoreSensor):
+    """One field of one person's most recent measurement.
+
+    Restores its last value on startup. Weigh-ins are rare and the coordinator
+    holds results only in memory, so without this every Home Assistant restart
+    — and every subentry edit, which reloads the entry — would blank all nine
+    sensors until somebody next stood on the scale.
+    """
 
     _attr_has_entity_name = True
     entity_description: ScaleSensorDescription
@@ -153,6 +159,7 @@ class ScaleSensor(CoordinatorEntity[ScaleCoordinator], SensorEntity):
         super().__init__(coordinator)
         self.entity_description = description
         self._subentry_id = subentry_id
+        self._restored: float | int | None = None
         self._attr_unique_id = f"{address}_{subentry_id}_{description.key}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{address}_{subentry_id}")},
@@ -161,6 +168,13 @@ class ScaleSensor(CoordinatorEntity[ScaleCoordinator], SensorEntity):
             name=person_name,
             via_device=(DOMAIN, address),
         )
+
+    async def async_added_to_hass(self) -> None:
+        """Pick up the value this entity had before the restart."""
+        await super().async_added_to_hass()
+        last = await self.async_get_last_sensor_data()
+        if last is not None:
+            self._restored = last.native_value
 
     @property
     def _measurement(self) -> FinalFrame | None:
@@ -174,13 +188,13 @@ class ScaleSensor(CoordinatorEntity[ScaleCoordinator], SensorEntity):
         the radio would leave every sensor unavailable between weigh-ins and
         break history. The last reading stays valid until the next one.
         """
-        return self._measurement is not None
+        return self._measurement is not None or self._restored is not None
 
     @property
     def native_value(self) -> float | int | None:
         measurement = self._measurement
         if measurement is None:
-            return None
+            return self._restored
         return self.entity_description.value_fn(measurement)
 
     @property
