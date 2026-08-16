@@ -3,11 +3,8 @@
     "flow_title": "{name}",
     "step": {
       "user": {
-        "title": "Select your scale",
-        "description": "Step on the scale first — it only advertises while awake.",
-        "data": {
-          "address": "Scale"
-        }
+        "title": "Wake the scale",
+        "description": "The scale is switched off and invisible until it is used.\n\n1. Place it on a hard floor\n2. Step on it (barefoot, for body composition)\n3. Press **Submit** and stay on it\n\nHome Assistant will watch for it for {seconds} seconds."
       },
       "profile": {
         "title": "Body profile",
@@ -18,11 +15,23 @@
           "height_cm": "Height (cm)",
           "slot": "On-scale user profile (P0, P1, ...)"
         }
+      },
+      "pick": {
+        "title": "Select your scale",
+        "description": "These scales are advertising right now.",
+        "data": {
+          "address": "Scale"
+        }
       }
     },
     "abort": {
-      "already_configured": "This scale is already set up",
-      "no_devices_found": "No scale found. Step on it to wake it up, then try again."
+      "already_configured": "This scale is already set up"
+    },
+    "progress": {
+      "scanning": "Looking for the scale — step on it now and stay on it…"
+    },
+    "error": {
+      "not_found": "No scale found. It only transmits while awake, so step on it just before pressing Submit, and keep it within range of a Bluetooth adapter or proxy."
     }
   },
   "options": {

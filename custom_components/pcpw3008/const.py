@@ -24,6 +24,11 @@ DEFAULT_HEIGHT = 175
 DEFAULT_SLOT = 0
 MAX_SLOT = 7
 
+# How long the config flow watches for the scale to advertise. It has to be
+# long enough for someone to walk over and step on it, not just long enough
+# for a radio scan.
+DISCOVERY_TIMEOUT = 60.0
+
 # How long to keep the link open waiting for the user to settle. The observed
 # gap between connecting and the final frame was ~15s; this is generous.
 SESSION_TIMEOUT = 90.0

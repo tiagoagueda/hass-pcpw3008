@@ -164,11 +164,17 @@ class ScaleCoordinator(DataUpdateCoordinator[p.FinalFrame]):
 
     @callback
     def _on_notify(self, _characteristic, data: bytearray) -> None:
-        frame = bytes(data)
-        if not p.is_valid(frame):
-            _LOGGER.debug("Dropping malformed frame: %s", frame.hex())
-            return
+        # One notification can carry several frames back to back.
+        payload = bytes(data)
+        handled = False
+        for frame in p.iter_frames(payload):
+            handled = True
+            self._handle_frame(frame)
+        if not handled:
+            _LOGGER.debug("Dropping unparseable notification: %s", payload.hex())
 
+    @callback
+    def _handle_frame(self, frame: bytes) -> None:
         resp = frame[1]
         if resp == p.RESP_ACK:
             return

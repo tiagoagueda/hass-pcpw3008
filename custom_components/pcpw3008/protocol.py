@@ -128,6 +128,38 @@ def build_done() -> bytes:
     return build(CMD_MEASUREMENT_DONE, bytes([0x00]))
 
 
+def iter_frames(data: bytes):
+    """Split one notification into the frames it contains.
+
+    A single GATT notification can carry more than one frame back to back —
+    observed on hardware as an ACK immediately followed by a live frame::
+
+        FA 03 01 00 02  FA 01 03 01 3B 05 3D
+
+    Treating the payload as a single frame silently drops real measurements, so
+    always feed notifications through here. Frames are self-describing: byte 2
+    is the payload length, giving a total size of ``len + 4``.
+
+    Yields only structurally complete, checksum-valid frames; trailing garbage
+    is ignored.
+    """
+    offset = 0
+    end = len(data)
+    while offset + 4 <= end:
+        if data[offset] != MAGIC:
+            offset += 1
+            continue
+        size = data[offset + 2] + 4
+        if offset + size > end:
+            break
+        frame = data[offset : offset + size]
+        if is_valid(frame):
+            yield frame
+            offset += size
+        else:
+            offset += 1
+
+
 def _u16le(data: bytes, idx: int) -> int | None:
     if idx + 1 >= len(data):
         return None

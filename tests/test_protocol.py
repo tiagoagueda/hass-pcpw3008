@@ -85,6 +85,29 @@ def test_commands_match_what_the_scale_accepted():
     assert p.build_done().hex().upper() == "FA82010083"
 
 
+def test_splits_concatenated_notification():
+    # Captured verbatim: one notification carrying an ACK plus a live frame.
+    blob = bytes.fromhex("FA03010002FA0103013B053D")
+    frames = list(p.iter_frames(blob))
+    assert len(frames) == 2
+    assert frames[0][1] == p.RESP_ACK
+    assert frames[1][1] == p.RESP_LIVE
+    assert p.parse_live(frames[1]).weight_kg == 133.9
+
+
+def test_iter_frames_handles_single_and_empty():
+    assert len(list(p.iter_frames(FINAL))) == 1
+    assert list(p.iter_frames(b"")) == []
+    assert list(p.iter_frames(bytes([0x00, 0x01, 0x02]))) == []
+
+
+def test_iter_frames_skips_corruption_but_keeps_good_frames():
+    corrupt = bytearray(FINAL)
+    corrupt[-1] ^= 0xFF                       # break the checksum
+    frames = list(p.iter_frames(bytes(corrupt) + ACK))
+    assert [f[1] for f in frames] == [p.RESP_ACK]
+
+
 def test_profile_slot_lands_in_the_first_payload_byte():
     # The vendor app puts the selected user index here; openScale hard-codes 0.
     for slot in range(8):
