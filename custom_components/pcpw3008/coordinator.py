@@ -92,6 +92,7 @@ class ScaleCoordinator(DataUpdateCoordinator[dict[str, p.FinalFrame]]):
         self._last_published: tuple[float, float] | None = None
         self._unsubscribe = None
         self._last_person_id: str | None = None
+        self._live_seen = 0
         self.data = {}
 
     # --- people ---------------------------------------------------------------
@@ -166,7 +167,12 @@ class ScaleCoordinator(DataUpdateCoordinator[dict[str, p.FinalFrame]]):
     ) -> None:
         """The scale is awake. Start a session unless one is already running."""
         if self._session_lock.locked():
+            _LOGGER.debug(
+                "Advertisement from %s ignored: a session is already running",
+                self.address,
+            )
             return
+        _LOGGER.debug("Scale is awake (rssi %s); starting session", service_info.rssi)
         self.hass.async_create_task(self._run_session(service_info.device))
 
     # --- one weigh-in ---------------------------------------------------------
@@ -182,6 +188,7 @@ class ScaleCoordinator(DataUpdateCoordinator[dict[str, p.FinalFrame]]):
 
             self._pushed = pushed
             self._final_event.clear()
+            self._live_seen = 0
             self._disconnected = asyncio.Event()
             client = None
             try:
@@ -224,6 +231,11 @@ class ScaleCoordinator(DataUpdateCoordinator[dict[str, p.FinalFrame]]):
                         "No settled measurement (%s). Stay on the scale until it "
                         "settles — the link needs a few seconds to come up first.",
                         "scale disconnected" if self._disconnected.is_set() else "timed out",
+                    )
+                    _LOGGER.debug(
+                        "Session saw %d live frames, last weight %s kg",
+                        self._live_seen,
+                        "none" if self.live_weight is None else f"{self.live_weight:.2f}",
                     )
                     return
 
@@ -273,6 +285,13 @@ class ScaleCoordinator(DataUpdateCoordinator[dict[str, p.FinalFrame]]):
                 # The scale states its own resolution; trust it over a default.
                 self._divisor = live.divisor
                 self.live_weight = live.weight_kg
+                # Log the first, then every tenth: enough to tell 'nobody is on
+                # it' from 'a real weight that never settled', without flooding.
+                if self._live_seen % 10 == 0:
+                    _LOGGER.debug(
+                        "Live frame %d: %.2f kg", self._live_seen, live.weight_kg
+                    )
+                self._live_seen += 1
             return
 
         if resp == p.RESP_FINAL:
