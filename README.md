@@ -1,5 +1,13 @@
 # ProfiCare PC-PW 3008 BT — Home Assistant integration
 
+> **Canonical source:**
+> <https://source.tiagoagueda.com/tiagoagueda/hass-pcpw3008>
+>
+> The GitHub repository is a **mirror**. It exists only so HACS can ingest the
+> integration — HACS installs from GitHub releases and cannot read this forge.
+> Open issues and pull requests on the canonical repository; changes pushed only
+> to the mirror will be overwritten.
+
 Reads weight and body composition from a **ProfiCare PC-PW 3008 BT** bathroom
 scale over Bluetooth LE, with no vendor cloud and no phone app involved.
 
@@ -107,6 +115,18 @@ Documented in `custom_components/pcpw3008/protocol.py`, which is pure functions
 and covered by `tests/test_protocol.py` against frames captured from real
 hardware. Cross-checked against the vendor's "Dr.Curve+" app and openScale's
 `HoffenBbs8107Handler`.
+
+## Releasing
+
+`origin` is the canonical Forgejo repository and fans out to the GitHub mirror
+on every push, so the two cannot silently drift:
+
+```
+git push origin main --tags     # -> Forgejo AND GitHub
+```
+
+HACS resolves updates from **GitHub releases**, so a release has to be tagged
+there as well as pushed. `github` is a separate remote for that.
 
 ## Credits
 
