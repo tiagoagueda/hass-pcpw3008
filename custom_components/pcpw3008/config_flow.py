@@ -32,6 +32,7 @@ from homeassistant.core import callback
 from homeassistant.helpers import selector
 
 from .const import (
+    ADV_SERVICE_UUID,
     CONF_AGE,
     CONF_HEIGHT,
     CONF_MALE,
@@ -42,8 +43,30 @@ from .const import (
     DISCOVERY_TIMEOUT,
     DOMAIN,
     LOCAL_NAME,
+    MANUFACTURER_DATA_LEN,
+    MANUFACTURER_ID,
     MAX_SLOT,
 )
+
+
+def is_scale(info: BluetoothServiceInfoBleak) -> bool:
+    """Recognise the scale from the primary advertisement alone.
+
+    Matching on the advertised name is not enough: the full record exceeds the
+    31-byte legacy limit, so the name travels in the scan response and a
+    passively-scanning adapter never sees it. The service UUID and manufacturer
+    record are in the primary advertisement and are always visible.
+
+    0xFEE7 alone is the generic WeChat service shared with unrelated devices, so
+    it is paired with the manufacturer record to stay specific.
+    """
+    if info.name == LOCAL_NAME:
+        return True
+    blob = info.manufacturer_data.get(MANUFACTURER_ID)
+    if blob is None or len(blob) != MANUFACTURER_DATA_LEN:
+        return False
+    return any(u.lower() == ADV_SERVICE_UUID for u in info.service_uuids)
+
 
 PROFILE_SCHEMA = vol.Schema(
     {
@@ -172,13 +195,13 @@ class PcPw3008ConfigFlow(ConfigFlow, domain=DOMAIN):
         """Block until the scale advertises, or the window closes."""
 
         def _matcher(info: BluetoothServiceInfoBleak) -> bool:
-            return info.name == LOCAL_NAME and info.address not in self._async_current_ids()
+            return is_scale(info) and info.address not in self._async_current_ids()
 
         try:
             return await async_process_advertisements(
                 self.hass,
                 _matcher,
-                {"local_name": LOCAL_NAME, "connectable": True},
+                {"service_uuid": ADV_SERVICE_UUID, "connectable": True},
                 BluetoothScanningMode.ACTIVE,
                 DISCOVERY_TIMEOUT,
             )
@@ -190,7 +213,7 @@ class PcPw3008ConfigFlow(ConfigFlow, domain=DOMAIN):
         return {
             info.address: f"{info.name or LOCAL_NAME} ({info.address})"
             for info in async_discovered_service_info(self.hass, connectable=True)
-            if info.name == LOCAL_NAME and info.address not in configured
+            if is_scale(info) and info.address not in configured
         }
 
     # --- profile --------------------------------------------------------------

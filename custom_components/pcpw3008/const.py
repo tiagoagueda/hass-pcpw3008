@@ -9,6 +9,13 @@ DOMAIN = "pcpw3008"
 # service and plenty of unrelated hardware announces it.
 LOCAL_NAME = "PC-PW 3008 BT"
 
+# Advertised in the *primary* advertisement, so these survive passive scanning.
+# The local name does NOT: the full record is 32 bytes, over the 31-byte legacy
+# limit, so the name rides in the scan response and only an active scan sees it.
+ADV_SERVICE_UUID = "0000fee7-0000-1000-8000-00805f9b34fb"  # generic WeChat service
+MANUFACTURER_ID = 0x0131                                    # value is the MAC, reversed
+MANUFACTURER_DATA_LEN = 6
+
 SERVICE_UUID = "0000ffb0-0000-1000-8000-00805f9b34fb"
 CHAR_UUID = "0000ffb2-0000-1000-8000-00805f9b34fb"
 
