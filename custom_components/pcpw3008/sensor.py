@@ -1,9 +1,10 @@
-"""Sensors for the ProfiCare PC-PW 3008 BT scale."""
+"""Sensors for the ProfiCare PC-PW 3008 BT scale — one device per person."""
 
 from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -13,12 +14,12 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.const import CONF_ADDRESS, UnitOfMass
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import CONNECTION_BLUETOOTH, DeviceInfo
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import ScaleConfigEntry
-from .const import DOMAIN, LOCAL_NAME
+from .const import DOMAIN, SUBENTRY_PERSON
 from .coordinator import ScaleCoordinator
 from .protocol import FinalFrame
 
@@ -116,18 +117,27 @@ SENSORS: tuple[ScaleSensorDescription, ...] = (
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ScaleConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Set up the scale's sensors."""
+    """Create one device worth of sensors per configured person."""
     coordinator = entry.runtime_data
     address = entry.data[CONF_ADDRESS]
-    async_add_entities(
-        ScaleSensor(coordinator, description, address) for description in SENSORS
-    )
+
+    for subentry in entry.subentries.values():
+        if subentry.subentry_type != SUBENTRY_PERSON:
+            continue
+        async_add_entities(
+            [
+                ScaleSensor(coordinator, description, address, subentry.subentry_id,
+                            subentry.title)
+                for description in SENSORS
+            ],
+            config_subentry_id=subentry.subentry_id,
+        )
 
 
 class ScaleSensor(CoordinatorEntity[ScaleCoordinator], SensorEntity):
-    """One field of the most recent settled measurement."""
+    """One field of one person's most recent measurement."""
 
     _attr_has_entity_name = True
     entity_description: ScaleSensorDescription
@@ -137,31 +147,60 @@ class ScaleSensor(CoordinatorEntity[ScaleCoordinator], SensorEntity):
         coordinator: ScaleCoordinator,
         description: ScaleSensorDescription,
         address: str,
+        subentry_id: str,
+        person_name: str,
     ) -> None:
         super().__init__(coordinator)
         self.entity_description = description
-        self._attr_unique_id = f"{address}_{description.key}"
+        self._subentry_id = subentry_id
+        self._attr_unique_id = f"{address}_{subentry_id}_{description.key}"
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, address)},
-            connections={(CONNECTION_BLUETOOTH, address)},
+            identifiers={(DOMAIN, f"{address}_{subentry_id}")},
             manufacturer="ProfiCare",
             model="PC-PW 3008 BT",
-            name=LOCAL_NAME,
+            name=person_name,
+            via_device=(DOMAIN, address),
         )
 
     @property
+    def _measurement(self) -> FinalFrame | None:
+        return (self.coordinator.data or {}).get(self._subentry_id)
+
+    @property
     def available(self) -> bool:
-        """Available once a measurement exists.
+        """Available once this person has a measurement.
 
         The scale is powered down almost all the time, so tying availability to
         the radio would leave every sensor unavailable between weigh-ins and
         break history. The last reading stays valid until the next one.
         """
-        return self.coordinator.data is not None
+        return self._measurement is not None
 
     @property
     def native_value(self) -> float | int | None:
-        measurement = self.coordinator.data
+        measurement = self._measurement
         if measurement is None:
             return None
         return self.entity_description.value_fn(measurement)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Expose how confident the attribution was, on the weight sensor.
+
+        Without this an ambiguous match looks identical to a certain one, and
+        the user has no signal that a reading may belong to somebody else.
+        """
+        if self.entity_description.key != "weight":
+            return None
+        attribution = self.coordinator.last_attribution
+        if attribution is None or attribution.person.subentry_id != self._subentry_id:
+            return None
+        return {
+            "profile_used": (
+                attribution.profile_pushed_for.name
+                if attribution.profile_pushed_for
+                else None
+            ),
+            "body_composition_valid": attribution.exact,
+            "match_margin_kg": attribution.margin_kg,
+        }

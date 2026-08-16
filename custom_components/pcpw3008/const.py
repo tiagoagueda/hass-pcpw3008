@@ -25,6 +25,14 @@ CONF_HEIGHT = "height_cm"
 # On-scale user profile slot (P0, P1, ...). The scale keeps its own per-slot
 # history, so matching it keeps Home Assistant and the scale display in step.
 CONF_SLOT = "slot"
+CONF_USER_ID = "user_id"
+CONF_NAME = "name"
+CONF_EXPECTED_WEIGHT = "expected_weight"
+
+# One subentry per household member, each bound to an on-scale profile slot.
+# Home Assistant gates config and subentry flows to admins already, so the
+# "only admins may associate a person" rule needs no code of our own.
+SUBENTRY_PERSON = "person"
 
 DEFAULT_AGE = 40
 DEFAULT_HEIGHT = 175

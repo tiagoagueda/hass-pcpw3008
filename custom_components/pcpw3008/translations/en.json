@@ -78,5 +78,55 @@
         "name": "Body age"
       }
     }
+  },
+  "config_subentries": {
+    "person": {
+      "title": "Person",
+      "step": {
+        "user": {
+          "title": "Add a person",
+          "description": "Bind an on-scale profile slot to a Home Assistant user. The scale computes body composition on-device from this profile, so these values decide whether those readings mean anything — weight is unaffected. The approximate weight is how the integration tells people apart; it is refined automatically after each weigh-in.",
+          "data": {
+            "name": "Name",
+            "user_id": "Home Assistant user",
+            "male": "Male",
+            "age": "Age",
+            "height_cm": "Height (cm)",
+            "slot": "On-scale profile slot (P0, P1, ...)",
+            "expected_weight": "Approximate weight (kg)"
+          }
+        },
+        "reconfigure": {
+          "title": "Edit person",
+          "description": "Bind an on-scale profile slot to a Home Assistant user. The scale computes body composition on-device from this profile, so these values decide whether those readings mean anything — weight is unaffected. The approximate weight is how the integration tells people apart; it is refined automatically after each weigh-in.",
+          "data": {
+            "name": "Name",
+            "user_id": "Home Assistant user",
+            "male": "Male",
+            "age": "Age",
+            "height_cm": "Height (cm)",
+            "slot": "On-scale profile slot (P0, P1, ...)",
+            "expected_weight": "Approximate weight (kg)"
+          }
+        }
+      },
+      "entry_type": "person",
+      "initiate_flow": {
+        "user": "Add a person",
+        "reconfigure": "Edit person"
+      }
+    }
+  },
+  "services": {
+    "reassign_measurement": {
+      "name": "Reassign measurement",
+      "description": "Move the most recent weigh-in to a different person. Weight and a recomputed BMI move across; body composition does not, because the scale calculated it for the other person's profile.",
+      "fields": {
+        "person": {
+          "name": "Person",
+          "description": "Name of the person to attribute the weigh-in to."
+        }
+      }
+    }
   }
 }

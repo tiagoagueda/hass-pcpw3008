@@ -1,0 +1,7 @@
+reassign_measurement:
+  fields:
+    person:
+      required: true
+      example: "Tiago"
+      selector:
+        text:

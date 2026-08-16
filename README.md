@@ -34,13 +34,26 @@ scale's own display and the vendor app use. Set it to the slot you normally
 weigh under so Home Assistant and the scale agree about whose history a reading
 belongs to.
 
-**Multi-person households are still not properly solved.** The slot is a label,
-not an identity: the composition figures come from the gender/age/height pushed
-in that same session, and Home Assistant has no way to know who actually stepped
-on. Because the maths happens on-device there is no raw impedance to re-derive
-from afterwards either, so a second person gets their own weight alongside the
-configured profile's body composition. One profile per config entry is the
-current model.
+**Multi-person households** are handled with one *person* per config subentry
+(Settings → the integration → **Add person**), each bound to a Home Assistant
+user and to an on-scale profile slot (P0, P1, …). Home Assistant already
+restricts config and subentry flows to admins, so only an admin can create or
+change those associations.
+
+Identification is by weight. At the start of a session the integration pushes
+the profile of whoever weighed last — households repeat, so this is usually
+right — then attributes the settled reading to whoever's known weight is
+nearest, learning that weight for next time.
+
+When the guess was right, the scale's composition figures are correct and kept.
+When it was wrong, they were computed for somebody else's body, so they are
+dropped rather than shown under the wrong name: **weight survives, and BMI is
+recomputed** for the right height. The weight sensor carries
+`body_composition_valid` and `match_margin_kg` attributes so an uncertain
+attribution is visible instead of looking confident.
+
+Use the `pcpw3008.reassign_measurement` service to move a weigh-in to the right
+person. Same rule applies — weight and BMI move, composition does not.
 
 ## How it works
 

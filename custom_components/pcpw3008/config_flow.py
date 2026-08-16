@@ -25,7 +25,9 @@ from homeassistant.config_entries import (
     ConfigEntry,
     ConfigFlow,
     ConfigFlowResult,
+    ConfigSubentryFlow,
     OptionsFlow,
+    SubentryFlowResult,
 )
 from homeassistant.const import CONF_ADDRESS
 from homeassistant.core import callback
@@ -42,10 +44,14 @@ from .const import (
     DEFAULT_SLOT,
     DISCOVERY_TIMEOUT,
     DOMAIN,
+    CONF_EXPECTED_WEIGHT,
+    CONF_NAME,
+    CONF_USER_ID,
     LOCAL_NAME,
     MANUFACTURER_DATA_LEN,
     MANUFACTURER_ID,
     MAX_SLOT,
+    SUBENTRY_PERSON,
 )
 
 
@@ -231,6 +237,14 @@ class PcPw3008ConfigFlow(ConfigFlow, domain=DOMAIN):
             data={CONF_ADDRESS: self._address, **_coerce_profile(user_input)},
         )
 
+    @classmethod
+    @callback
+    def async_get_supported_subentry_types(
+        cls, config_entry: ConfigEntry
+    ) -> dict[str, type[ConfigSubentryFlow]]:
+        """People are added as subentries, so each gets its own device."""
+        return {SUBENTRY_PERSON: PersonSubentryFlow}
+
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
@@ -258,4 +272,96 @@ class PcPw3008OptionsFlow(OptionsFlow):
                     CONF_SLOT: current.get(CONF_SLOT, DEFAULT_SLOT),
                 },
             ),
+        )
+
+
+class PersonSubentryFlow(ConfigSubentryFlow):
+    """Add or edit one household member.
+
+    Home Assistant restricts subentry flows to admins, which is exactly the rule
+    we want: an admin binds each on-scale profile slot to a Home Assistant user,
+    and everyone else lives with that association.
+    """
+
+    async def _schema(self, defaults: dict[str, Any] | None = None) -> vol.Schema:
+        users = {
+            user.id: user.name
+            for user in await self.hass.auth.async_get_users()
+            if not user.system_generated and user.is_active and user.name
+        }
+        options = [{"value": uid, "label": name} for uid, name in users.items()]
+
+        return vol.Schema(
+            {
+                vol.Required(CONF_NAME): selector.TextSelector(),
+                vol.Optional(CONF_USER_ID): selector.SelectSelector(
+                    selector.SelectSelectorConfig(options=options, mode="dropdown")
+                ),
+                vol.Required(CONF_MALE, default=True): selector.BooleanSelector(),
+                vol.Required(CONF_AGE, default=DEFAULT_AGE): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=10, max=120, step=1, mode="box")
+                ),
+                vol.Required(
+                    CONF_HEIGHT, default=DEFAULT_HEIGHT
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=100, max=230, step=1, mode="box"
+                    )
+                ),
+                vol.Required(CONF_SLOT, default=DEFAULT_SLOT): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=0, max=MAX_SLOT, step=1, mode="box"
+                    )
+                ),
+                vol.Optional(CONF_EXPECTED_WEIGHT): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=10, max=300, step=0.1, mode="box",
+                        unit_of_measurement="kg",
+                    )
+                ),
+            }
+        )
+
+    def _clean(self, user_input: dict[str, Any]) -> dict[str, Any]:
+        data = {
+            CONF_NAME: user_input[CONF_NAME].strip(),
+            CONF_USER_ID: user_input.get(CONF_USER_ID),
+            CONF_MALE: bool(user_input[CONF_MALE]),
+            CONF_AGE: int(user_input[CONF_AGE]),
+            CONF_HEIGHT: int(user_input[CONF_HEIGHT]),
+            CONF_SLOT: int(user_input[CONF_SLOT]),
+        }
+        weight = user_input.get(CONF_EXPECTED_WEIGHT)
+        data[CONF_EXPECTED_WEIGHT] = float(weight) if weight else None
+        return data
+
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Add a person."""
+        if user_input is None:
+            return self.async_show_form(
+                step_id="user", data_schema=await self._schema()
+            )
+        data = self._clean(user_input)
+        return self.async_create_entry(title=data[CONF_NAME], data=data)
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Edit an existing person."""
+        current = self._get_reconfigure_subentry().data
+        if user_input is None:
+            return self.async_show_form(
+                step_id="reconfigure",
+                data_schema=self.add_suggested_values_to_schema(
+                    await self._schema(), dict(current)
+                ),
+            )
+        data = self._clean(user_input)
+        return self.async_update_and_abort(
+            self._get_entry(),
+            self._get_reconfigure_subentry(),
+            title=data[CONF_NAME],
+            data=data,
         )
