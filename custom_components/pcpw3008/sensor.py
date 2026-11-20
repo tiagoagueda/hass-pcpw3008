@@ -166,7 +166,6 @@ class ScaleSensor(CoordinatorEntity[ScaleCoordinator], RestoreSensor):
             manufacturer="ProfiCare",
             model="PC-PW 3008 BT",
             name=person_name,
-            via_device=(DOMAIN, address),
         )
 
     async def async_added_to_hass(self) -> None:

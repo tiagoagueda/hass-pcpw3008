@@ -80,11 +80,15 @@ class ScaleCoordinator(DataUpdateCoordinator[dict[str, p.FinalFrame]]):
     """Owns the BLE session and publishes per-person measurements."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry, address: str) -> None:
-        super().__init__(hass, _LOGGER, name=f"{DOMAIN} {address}")
+        super().__init__(
+            hass, _LOGGER, config_entry=entry, name=f"{DOMAIN} {address}"
+        )
         self.entry = entry
         self.address = address
         self.live_weight: float | None = None
         self.last_attribution: Attribution | None = None
+        #: Config as of setup, minus learned weights; see __init__._config_signature.
+        self.config_signature: tuple = ()
 
         self._session_lock = asyncio.Lock()
         self._divisor = 10

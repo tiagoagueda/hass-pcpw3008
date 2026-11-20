@@ -35,7 +35,7 @@ ATTR_PERSON = "person"
 type ScaleConfigEntry = ConfigEntry[ScaleCoordinator]
 
 
-def _migrate_legacy_unique_ids(
+async def _migrate_legacy_unique_ids(
     hass: HomeAssistant, entry: ConfigEntry, subentry_id: str, address: str
 ) -> None:
     """Re-point pre-multi-user entities at the person they became.
@@ -65,10 +65,10 @@ def _migrate_legacy_unique_ids(
             return None
         return {"new_unique_id": new_uid}
 
-    er.async_migrate_entries(hass, entry.entry_id, _update)
+    await er.async_migrate_entries(hass, entry.entry_id, _update)
 
 
-def _ensure_person_subentry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+async def _ensure_person_subentry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Carry a pre-multi-user config entry over to a person subentry.
 
     Early versions stored one profile directly on the config entry. Rather than
@@ -100,16 +100,19 @@ def _ensure_person_subentry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     created = next(
         s_ for s_ in entry.subentries.values() if s_.subentry_type == SUBENTRY_PERSON
     )
-    _migrate_legacy_unique_ids(hass, entry, created.subentry_id, entry.data[CONF_ADDRESS])
+    await _migrate_legacy_unique_ids(
+        hass, entry, created.subentry_id, entry.data[CONF_ADDRESS]
+    )
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ScaleConfigEntry) -> bool:
     """Set up the scale from a config entry."""
-    _ensure_person_subentry(hass, entry)
+    await _ensure_person_subentry(hass, entry)
 
     coordinator = ScaleCoordinator(hass, entry, entry.data[CONF_ADDRESS])
     await coordinator.async_start()
     entry.runtime_data = coordinator
+    coordinator.config_signature = _config_signature(entry)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_reload))
@@ -125,8 +128,42 @@ async def async_unload_entry(hass: HomeAssistant, entry: ScaleConfigEntry) -> bo
     return unloaded
 
 
-async def _async_reload(hass: HomeAssistant, entry: ConfigEntry) -> None:
+def _config_signature(entry: ConfigEntry) -> tuple:
+    """Everything whose change needs a reload, i.e. all config but learned weights.
+
+    The coordinator writes each person's learned weight back to their subentry
+    after every weigh-in, and that write fires the update listener too.
+    Reloading on it would throw away the in-memory measurement and attribution
+    after every single weigh-in, so ``reassign_measurement`` could never find
+    anything to move.
+    """
+    return (
+        tuple(sorted(entry.data.items())),
+        tuple(sorted(entry.options.items())),
+        tuple(
+            sorted(
+                (
+                    subentry_id,
+                    subentry.subentry_type,
+                    subentry.title,
+                    tuple(
+                        sorted(
+                            (k, v)
+                            for k, v in subentry.data.items()
+                            if k != CONF_EXPECTED_WEIGHT
+                        )
+                    ),
+                )
+                for subentry_id, subentry in entry.subentries.items()
+            )
+        ),
+    )
+
+
+async def _async_reload(hass: HomeAssistant, entry: ScaleConfigEntry) -> None:
     """A changed profile changes what the scale computes, so reconnect with it."""
+    if entry.runtime_data.config_signature == _config_signature(entry):
+        return
     await hass.config_entries.async_reload(entry.entry_id)
 
 
