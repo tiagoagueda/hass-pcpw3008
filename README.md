@@ -3,8 +3,9 @@
 > **Canonical source:**
 > <https://source.tiagoagueda.com/tiagoagueda/hass-pcpw3008>
 >
-> The GitHub repository is a **mirror**. It exists only so HACS can ingest the
-> integration — HACS installs from GitHub releases and cannot read this forge.
+> The GitHub repository is a **mirror**. It exists only so the Home Assistant
+> Marketplace (formerly HACS) can install the integration — it installs from
+> GitHub releases and cannot read this forge.
 > Open issues and pull requests on the canonical repository; changes pushed only
 > to the mirror will be overwritten.
 
@@ -34,8 +35,8 @@ returns only the finished numbers. So:
 - **Weight is always correct**, whatever the profile says.
 - **Everything else is only as correct as the profile** you configure.
 
-You can edit the profile any time via the integration's *Configure* button; the
-entry reloads so the next weigh-in uses it.
+You can edit a person's profile any time via *Reconfigure* on that person (see
+below); the entry reloads so the next weigh-in uses it.
 
 The profile also carries a **slot** (P0, P1, …) — the same user selector the
 scale's own display and the vendor app use. Set it to the slot you normally
@@ -99,8 +100,14 @@ the radio would make every entity unavailable most of the day and shred history.
 
 ## Installation
 
-**HACS** → ⋮ → *Custom repositories* → add this repo as an *Integration* →
-install → restart Home Assistant.
+Requires Home Assistant **2025.3** or newer.
+
+**Marketplace** (Home Assistant 2026.11+, *Settings → Marketplace*) or **HACS**
+(older versions): add `https://github.com/tiagoagueda/hass-pcpw3008` as a
+custom repository of type *Integration*, install it, then restart Home
+Assistant. Use the GitHub URL — neither can read the Forgejo repository. The
+Marketplace asks you to connect a GitHub account (read-only) before it accepts
+custom repositories.
 
 **Manual** — copy `custom_components/pcpw3008/` into your `config/custom_components/`
 and restart.
@@ -125,8 +132,15 @@ on every push, so the two cannot silently drift:
 git push origin main --tags     # -> Forgejo AND GitHub
 ```
 
-HACS resolves updates from **GitHub releases**, so a release has to be tagged
-there as well as pushed. `github` is a separate remote for that.
+The Marketplace (and HACS before it) resolves updates from **GitHub
+releases** — a tag alone is not enough — so once the tag has reached the
+mirror, publish a release for it there:
+
+```
+gh release create vX.Y.Z -R tiagoagueda/hass-pcpw3008 --title "vX.Y.Z — …" --notes "…"
+```
+
+The tag must match `version` in `manifest.json`.
 
 ## Credits
 
