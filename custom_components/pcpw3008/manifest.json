@@ -27,5 +27,5 @@
   "iot_class": "local_push",
   "issue_tracker": "https://source.tiagoagueda.com/tiagoagueda/hass-pcpw3008/issues",
   "requirements": [],
-  "version": "0.4.3"
+  "version": "0.4.4"
 }
